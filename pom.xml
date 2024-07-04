@@ -214,14 +214,6 @@
             <artifactId>jsoup</artifactId>
             <version>1.14.3</version>
         </dependency>
-
-        <dependency>
-            <groupId>alipay.atg.sdk</groupId>
-            <artifactId>sdk.java</artifactId>
-            <version>RELEASE20230308093955</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/src/main/webapp/WEB-INF/lib/atg-sdk-java-RELEASE20230308093955.jar</systemPath>
-        </dependency>
     </dependencies>
 
     <dependencyManagement>
