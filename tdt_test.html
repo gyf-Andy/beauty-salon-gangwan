@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
+    <title>地图定位标点-tian</title>
+    <script type="text/javascript" src="https://api.tianditu.gov.cn/api?v=4.0&tk=503a6bf92249bf59135d2b998535bdd3"></script>
+    <!-- <script type="text/javascript" src="http://api.tianditu.gov.cn/api?v=4.0&tk=221db98e43cf32b0508f6438bf84751d"></script>-->
+    <!-- 天地图封装js -->
+<!--    <script src="/src/main/resources/static/temporary/jquery-1.7.2.min.js"></script>-->
+    <script src="https://libs.baidu.com/jquery/1.7.2/jquery.min.js"></script>
+    <!--中台传参数-->
+    <script src="https://assets.zjzwfw.gov.cn/assets/assets/0.2.0/formbridge/1.0.2/formbridge-client.umd.js"></script>
+    <!-- 引入 layui.css layui.js-->
+    <link href="//unpkg.com/layui@2.9.16/dist/css/layui.css" rel="stylesheet">
+    <script src="//unpkg.com/layui@2.9.16/dist/layui.js"></script>
+    <style type="text/css">
+        body, html {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            font-family: "微软雅黑";
+        }
+
+        #mapDiv {
+            height: 1000px;
+            width: 100%;
+            position: absolute;
+            margin: auto;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+
+        #but {
+            z-index: 999;
+            position: absolute;
+            margin-top: 5px;
+        }
+
+        input, b, p {
+            margin-left: 5px;
+            font-size: 14px
+        }
+
+        ul, li {
+            list-style: none;
+        }
+
+        .search {
+            font-size: 13px;
+            border: 1px solid #999999;
+            line-height: 27px;
+            padding-left: 7px;
+        }
+
+        .suggests {
+            display: none;
+            font-size: 13px;
+            border: 1px solid #999999;
+            margin: -30px 0 0 5px;
+            cursor: default;
+        }
+
+        .item-high:hover {
+            background-color: #EAE2E2FF;
+        }
+
+        #close{
+            z-index: 999;
+            position: absolute;
+            margin-left: 90%;
+            margin-top: 950px;
+        }
+    </style>
+    <script>
+        var localsearch;
+        var infoWin;
+        var geocoder;
+        var map, zoom = 12, handler;
+
+        function onLoad() {
+            //初始化地图对象
+            map = new T.Map("mapDiv");
+            //设置显示地图的中心点和级别
+            map.centerAndZoom(new T.LngLat(116.397477, 39.908692), zoom);
+            //允许鼠标双击放大地图
+            map.enableScrollWheelZoom();
+            
+            var config = {
+                pageCapacity: 10,	//每页显示的数量
+                onSearchComplete: localSearchResult,	//接收数据的回调函数
+                showLabel: true,
+                color: "blue", weight: 3, opacity: 0.5, fillColor: "#FFFFFF", fillOpacity: 0.5
+            };
+
+            //创建搜索对象
+            localsearch = new T.LocalSearch(map, config);
+            $("#keyWord").keyup(function () {
+                localsearch.search(document.getElementById('keyWord').value,4)
+            });
+
+	        //设置放大级别
+	        map.setMinZoom(0);
+            map.setMaxZoom(18);
+
+            //创建标注工具对象
+            handler = new T.MarkTool(map, {follow: true});
+
+            //创建对象（根据地址定位坐标）
+            geocoder = new T.Geocoder();
+
+        }
+
+        //创建标注点
+        function openMarkerTool() {
+            console.log(handler.getMarkers())
+            if (handler.getMarkers().length===0){
+                if (handler) handler.close();
+                handler = new T.MarkTool(map, {follow: true});
+                handler.open();
+            }else {
+                layer.msg('标注点已存在，请先清除！', {icon: 0}, function(){
+                });
+            }
+
+        }
+
+        //发送标记点经纬度坐标
+        function getIndex(){
+            console.log(handler.getMarkers())
+            if (handler.getMarkers().length===0){
+                layer.msg('请先标记地点！', {icon: 0}, function(){
+                });
+            }else {
+                var bridgeClient = new window.formbridgeClient();
+                bridgeClient.postData(handler.getMarkers()[0].or);
+                layer.msg('保存成功！', {icon: 0}, function(){
+                });
+                bridgeClient.close();
+            }
+        }
+
+        function localSearchResult(result) {
+            //清空地图及搜索列表
+            clearAll();
+            //解析建议词信息
+            suggests(result.getSuggests());
+        }
+
+        //解析建议词信息
+        function suggests(obj) {
+            if (obj) {
+                //建议词提示，如果搜索类型为公交规划建议词或公交站搜索时，返回结果为公交信息的建议词。
+                var suggestsHtml = "<ul>";
+                for (var i = 0; i < obj.length; i++) {
+                    suggestsHtml += "<li class='item-high' onclick='getValueToSearch(event);'  style='padding-left: 9px;font-size: small'>" + obj[i].name + "&nbsp;&nbsp;<font style='color:#a8a1a1'>"  + "</font></li>";
+                }
+                suggestsHtml += "</ul>";
+                document.getElementById("suggestsDiv").style.display = "block";
+                //document.getElementById("suggestsDiv").style.background = "#EAE2E2FF";
+                document.getElementById("suggestsDiv").innerHTML = suggestsHtml;
+            }
+        }
+
+        //清空地图及搜索列表
+        function clearAll() {
+            map.clearOverLays();
+            document.getElementById("suggestsDiv").innerHTML = "";
+            document.getElementById("suggestsDiv").style.display = "none";
+        }
+
+        function getLayerCount() {
+            return map.getOverlays().length;
+        }
+
+        //搜索
+        function search(){
+            map.clearOverLays();
+            geocoder.getPoint(document.getElementById("keyWord").value, searchResult);
+        }
+
+        //添加收缩标记
+        function searchResult(result)
+        {
+            if(result.getStatus() == 0){
+                console.log(result.getLocationPoint())
+                var lat = result.getLocationPoint().lat;
+                var lng = result.getLocationPoint().lng;
+                var lnglat = new T.LngLat(lng,lat);
+
+                var infoWin = new T.InfoWindow();
+                infoWin.setLngLat(lnglat);
+                //设置信息窗口要显示的内容
+                infoWin.setContent(document.getElementById("keyWord").value);
+                //向地图上添加信息窗口
+                map.addOverLay(infoWin);
+
+                map.panTo(result.getLocationPoint(), 16);
+            }else{
+                layer.msg(result.getMsg(), {icon: 0}, function(){
+                });
+            }
+
+        }
+
+        //填充搜索框
+        function getValueToSearch(event){
+            var value = event.target.textContent;
+            document.getElementById("keyWord").value = value.trim();
+            search();
+        }
+
+        //清除标注点
+        function clearMarker(){
+            map.clearOverLays();
+        }
+
+        //清除标注点
+        function closeFrame(){
+            var bridgeClient = new window.formbridgeClient()
+            bridgeClient.close();
+        }
+
+    </script>
+</head>
+<body onLoad="onLoad()">
+<div id="mapDiv">
+    <div  id="but">
+        <input type="button" class="layui-btn layui-btn-normal layui-btn-radius" id="marker" value="标注" onClick='openMarkerTool() '/>
+        <input type="button" class="layui-btn layui-btn-normal layui-btn-radius" id="clear" value="清除标注" onClick='clearMarker()'/>
+        <!-- 搜索面板 -->
+        <div class="layui-form-item" style="margin-top: 10px" >
+            <div class="layui-input-group" style="width: 283px;">
+                <input type="text"   class="layui-input"  type="text" id="keyWord" placeholder="请输入" value="" onpropertychange="localsearch.search(document.getElementById('keyWord').value,4)">
+                <div class="layui-input-split layui-input-suffix" style="cursor: pointer;background-color: #1e9efd">
+                    <i class="layui-icon layui-icon-search" style="color: white;" value="搜索" onclick="search();"></i>
+                </div>
+            </div>
+        </div>
+        <br/>
+        <!-- 建议词面板 -->
+        <div id="suggestsDiv"  class="suggests layui-panel"></div>
+
+    </div>
+    <div id="close" >
+        <input type="button" class="layui-btn layui-btn-gray layui-btn-radius" value="取消" onClick='closeFrame()'/>
+        <input type="button" class="layui-btn layui-btn-normal layui-btn-radius" value="保存" onClick='getIndex()'/>
+    </div>
+</div>
+</body>
+</html>
